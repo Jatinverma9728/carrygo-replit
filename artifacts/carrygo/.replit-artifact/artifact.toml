@@ -1,0 +1,27 @@
+kind = "mobile"
+previewPath = "/"
+title = "CarryGo"
+version = "1.0.0"
+id = "artifacts/carrygo"
+router = "expo-domain"
+
+[[integratedSkills]]
+name = "expo"
+version = "1.0.0"
+
+[[services]]
+ensurePreviewReachable = "/status"
+name = "expo"
+paths = [ "/" ]
+localPort = 25317
+
+[services.development]
+run = "pnpm --filter @workspace/carrygo run dev"
+
+[services.production]
+build = [ "pnpm", "--filter", "@workspace/carrygo", "run", "build" ]
+run = [ "pnpm", "--filter", "@workspace/carrygo", "run", "serve" ]
+
+[services.env]
+PORT = "25317"
+BASE_PATH = "/"

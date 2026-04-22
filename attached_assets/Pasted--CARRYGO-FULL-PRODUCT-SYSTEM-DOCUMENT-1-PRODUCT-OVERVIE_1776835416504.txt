@@ -1,0 +1,237 @@
+📄 CARRYGO – FULL PRODUCT & SYSTEM DOCUMENT
+🧠 1. PRODUCT OVERVIEW
+🎯 Product Type:
+Peer-to-peer logistics coordination platform
+Meet-based delivery system (NO storage, NO shops)
+🔥 Core Principle:
+
+👉 “Delivery tabhi hogi jab dono parties confirm ho”
+
+🧩 System Components:
+Mobile App (React Native)
+Backend API (Node.js + Express)
+Database (PostgreSQL)
+Realtime System (Socket.io)
+🎨 2. UI / UX DESIGN SYSTEM
+🎨 Color Palette
+Primary:
+Black (#0B0B0B)
+White (#FFFFFF)
+Accent:
+Electric Blue (#3B82F6)
+Success:
+Green (#22C55E)
+Error:
+Red (#EF4444)
+🧠 Design Philosophy
+Minimal + clean
+Card-based layout
+Large buttons (mobile-first)
+Smooth animations
+🔤 Typography
+Font: Inter / SF Pro
+Bold headings
+Clean readable body text
+📱 3. APP SCREENS (DETAILED)
+🏠 3.1 Home Screen
+Components:
+“Send Parcel” button
+“Post Trip” button
+Recent activity
+🚗 3.2 Trip Creation Screen
+Fields:
+From city
+To city
+Date & time
+Vehicle type
+📦 3.3 Parcel Creation Screen
+Fields:
+From city
+To city
+Category
+Description
+Image upload
+Price offer
+🔍 3.4 Matching Screen
+Features:
+Show matching travellers
+Send request button
+🔗 3.5 Requests Screen
+Tabs:
+Incoming
+Outgoing
+💬 3.6 Chat Screen
+Features:
+Real-time messaging
+Delivery coordination
+📍 3.7 Delivery Confirmation Screen
+Actions:
+Pickup confirm
+Delivery confirm (OTP)
+👤 3.8 Profile Screen
+Features:
+Rating
+History
+Trips & parcels
+⚙️ 4. FEATURE LOGIC (HOW EVERYTHING WORKS)
+🔐 4.1 Authentication
+Phone OTP login
+JWT token generated
+🚗 4.2 Trip System
+
+👉 Traveller creates trip
+
+Stored in DB:
+
+route
+time
+availability
+📦 4.3 Parcel System
+
+👉 Sender creates parcel
+
+Stored:
+
+route
+price
+description
+🔗 4.4 Matching System
+
+👉 Backend filters:
+
+WHERE from_city = X
+AND to_city = Y
+AND date ~ match
+🤝 4.5 Request System
+
+👉 Sender → Traveller
+
+States:
+
+PENDING
+ACCEPTED
+REJECTED
+💬 4.6 Chat System
+WebSocket connection
+Real-time messages
+📦 4.7 Delivery System
+Flow:
+Pickup confirm (photo)
+Travel
+Meet at location
+Delivery confirm (OTP)
+⚠️ Failure Case:
+Receiver not available
+Mark failed
+Return flow triggered
+💸 4.8 Payment System
+Flow:
+Sender pays
+Money locked (escrow)
+Delivery success → release
+Fail → refund/adjust
+🔄 5. SYSTEM FLOW (END-TO-END)
+User Login
+↓
+Trip / Parcel Creation
+↓
+Matching
+↓
+Request
+↓
+Accept
+↓
+Chat
+↓
+Payment
+↓
+Pickup
+↓
+Delivery
+↓
+Rating
+⚙️ 6. BACKEND ARCHITECTURE
+Structure:
+Controller → Service → Repository → Database
+Modules:
+Auth
+Users
+Trips
+Parcels
+Requests
+Payments
+Chat
+🗄️ 7. DATABASE ARCHITECTURE
+Core Tables:
+users
+trips
+parcels
+requests
+deliveries
+payments
+Relationships:
+User → Trips
+User → Parcels
+Parcel → Request → Trip → Delivery
+🔌 8. FRONTEND ↔ BACKEND COMMUNICATION
+API Calls:
+
+Frontend → Axios → Backend
+
+Example:
+POST /trips
+GET /trips
+POST /requests
+POST /payments
+Realtime:
+
+Frontend ↔ Socket.io ↔ Backend
+
+🧠 9. STATE MANAGEMENT (FRONTEND)
+Store:
+user
+trips
+parcels
+chat
+Flow:
+Component → Store → API → Update UI
+🔐 10. SECURITY
+JWT authentication
+Input validation
+Rate limiting
+⚡ 11. PERFORMANCE
+DB indexing
+API caching (Redis later)
+Lazy loading
+🧪 12. TESTING
+API testing
+UI testing
+Real user testing
+🚀 13. DEPLOYMENT
+Backend:
+VPS / AWS
+DB:
+Managed PostgreSQL
+App:
+Play Store / App Store
+🔥 14. MVP RULES (IMPORTANT)
+
+👉 Keep it SIMPLE:
+
+No AI
+No automation
+No storage system
+Only confirmed meet delivery
+🧠 FINAL SYSTEM UNDERSTANDING
+
+👉 CarryGo =
+
+Matching Engine + Trust System + Delivery Flow
+
+🧨 REAL TRUTH
+
+👉 Success depend karega:
+
+UX simplicity
+Trust
+Execution

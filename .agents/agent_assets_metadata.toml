@@ -1,0 +1,8 @@
+uploads = []
+outputs = []
+
+[[generated]]
+id = "P4EF4Ce7qRLd1wjXmMeYI"
+uri = "file://artifacts/carrygo/assets/images/icon.png"
+type = "image"
+title = "carrygo app icon"
