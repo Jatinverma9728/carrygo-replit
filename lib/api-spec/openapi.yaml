@@ -1,36 +1,803 @@
 openapi: 3.1.0
 info:
-  # Do not change the title, if the title changes, the import paths will be broken
   title: Api
   version: 0.1.0
-  description: API specification
+  description: CarryGo backend API
 servers:
   - url: /api
     description: Base API path
 tags:
   - name: health
-    description: Health operations
+  - name: auth
+  - name: trips
+  - name: parcels
+  - name: requests
+  - name: deliveries
+  - name: chats
+  - name: notifications
+  - name: ratings
+
 paths:
   /healthz:
     get:
       operationId: healthCheck
       tags: [health]
-      summary: Health check
-      description: Returns server health status
       responses:
         "200":
           description: Healthy
           content:
             application/json:
+              schema: { $ref: "#/components/schemas/HealthStatus" }
+
+  /auth/otp/request:
+    post:
+      operationId: requestOtp
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OtpRequestBody" }
+      responses:
+        "200":
+          description: OTP sent (demo code returned)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OtpRequestResult" }
+
+  /auth/otp/verify:
+    post:
+      operationId: verifyOtp
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/OtpVerifyBody" }
+      responses:
+        "200":
+          description: Verified
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuthResult" }
+
+  /auth/me:
+    get:
+      operationId: getMe
+      tags: [auth]
+      responses:
+        "200":
+          description: Current user
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+    patch:
+      operationId: updateMe
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UpdateMeBody" }
+      responses:
+        "200":
+          description: Updated
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+
+  /auth/signout:
+    post:
+      operationId: signOut
+      tags: [auth]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+
+  /auth/push-token:
+    post:
+      operationId: registerPushToken
+      tags: [auth]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PushTokenBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+
+  /trips:
+    get:
+      operationId: listTrips
+      tags: [trips]
+      parameters:
+        - in: query
+          name: fromCity
+          schema: { type: string }
+        - in: query
+          name: toCity
+          schema: { type: string }
+        - in: query
+          name: mine
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Trips
+          content:
+            application/json:
               schema:
-                $ref: "#/components/schemas/HealthStatus"
+                type: array
+                items: { $ref: "#/components/schemas/Trip" }
+    post:
+      operationId: createTrip
+      tags: [trips]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateTripBody" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+
+  /trips/{id}:
+    get:
+      operationId: getTrip
+      tags: [trips]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Trip
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+
+  /trips/{id}/cancel:
+    post:
+      operationId: cancelTrip
+      tags: [trips]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Trip" }
+
+  /parcels:
+    get:
+      operationId: listParcels
+      tags: [parcels]
+      parameters:
+        - in: query
+          name: mine
+          schema: { type: boolean }
+      responses:
+        "200":
+          description: Parcels
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Parcel" }
+    post:
+      operationId: createParcel
+      tags: [parcels]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateParcelBody" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Parcel" }
+
+  /parcels/{id}:
+    get:
+      operationId: getParcel
+      tags: [parcels]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Parcel
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Parcel" }
+
+  /parcels/{id}/cancel:
+    post:
+      operationId: cancelParcel
+      tags: [parcels]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Parcel" }
+
+  /parcels/{id}/matching-trips:
+    get:
+      operationId: matchingTrips
+      tags: [parcels]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Matching trips
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Trip" }
+
+  /requests:
+    get:
+      operationId: listRequests
+      tags: [requests]
+      parameters:
+        - in: query
+          name: direction
+          schema:
+            type: string
+            enum: [incoming, outgoing, all]
+      responses:
+        "200":
+          description: Requests
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DeliveryRequest" }
+    post:
+      operationId: createRequest
+      tags: [requests]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/CreateRequestBody" }
+      responses:
+        "200":
+          description: Created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+
+  /requests/{id}/accept:
+    post:
+      operationId: acceptRequest
+      tags: [requests]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Delivery created
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /requests/{id}/reject:
+    post:
+      operationId: rejectRequest
+      tags: [requests]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+
+  /requests/{id}/cancel:
+    post:
+      operationId: cancelRequest
+      tags: [requests]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+
+  /deliveries:
+    get:
+      operationId: listDeliveries
+      tags: [deliveries]
+      responses:
+        "200":
+          description: Deliveries
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Delivery" }
+
+  /deliveries/{id}:
+    get:
+      operationId: getDelivery
+      tags: [deliveries]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Delivery
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /deliveries/{id}/pickup:
+    post:
+      operationId: confirmPickup
+      tags: [deliveries]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /deliveries/{id}/handoff:
+    post:
+      operationId: confirmHandoff
+      tags: [deliveries]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/HandoffBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /deliveries/{id}/fail:
+    post:
+      operationId: failDelivery
+      tags: [deliveries]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/FailBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /deliveries/{id}/rate:
+    post:
+      operationId: rateDelivery
+      tags: [ratings]
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RateBody" }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Delivery" }
+
+  /chats:
+    get:
+      operationId: listChats
+      tags: [chats]
+      responses:
+        "200":
+          description: Chat threads
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ChatThread" }
+
+  /chats/{threadId}/messages:
+    get:
+      operationId: listMessages
+      tags: [chats]
+      parameters:
+        - in: path
+          name: threadId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: Messages
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ChatMessage" }
+    post:
+      operationId: sendMessage
+      tags: [chats]
+      parameters:
+        - in: path
+          name: threadId
+          required: true
+          schema: { type: string }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/SendMessageBody" }
+      responses:
+        "200":
+          description: Sent
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ChatMessage" }
+
+  /chats/{threadId}/read:
+    post:
+      operationId: markChatRead
+      tags: [chats]
+      parameters:
+        - in: path
+          name: threadId
+          required: true
+          schema: { type: string }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+
+  /notifications:
+    get:
+      operationId: listNotifications
+      tags: [notifications]
+      responses:
+        "200":
+          description: Notifications
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Notification" }
+
+  /notifications/read-all:
+    post:
+      operationId: markAllNotificationsRead
+      tags: [notifications]
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/OkResponse" }
+
+  /notifications/unread-count:
+    get:
+      operationId: unreadCounts
+      tags: [notifications]
+      responses:
+        "200":
+          description: Unread counts
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/UnreadCounts" }
+
 components:
   schemas:
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok: { type: boolean }
+
     HealthStatus:
       type: object
+      required: [status]
       properties:
-        status:
-          type: string
-      required:
-        - status
+        status: { type: string }
 
+    OtpRequestBody:
+      type: object
+      required: [phone]
+      properties:
+        phone: { type: string, minLength: 4 }
+
+    OtpRequestResult:
+      type: object
+      required: [sent]
+      properties:
+        sent: { type: boolean }
+        demoCode: { type: string }
+
+    OtpVerifyBody:
+      type: object
+      required: [phone, code, name]
+      properties:
+        phone: { type: string }
+        code: { type: string, minLength: 4, maxLength: 8 }
+        name: { type: string, minLength: 1, maxLength: 60 }
+
+    AuthResult:
+      type: object
+      required: [token, user]
+      properties:
+        token: { type: string }
+        user: { $ref: "#/components/schemas/User" }
+
+    UpdateMeBody:
+      type: object
+      properties:
+        name: { type: string, minLength: 1, maxLength: 60 }
+        avatarColor: { type: string }
+
+    PushTokenBody:
+      type: object
+      required: [token]
+      properties:
+        token: { type: string }
+
+    User:
+      type: object
+      required: [id, phone, name, avatarColor, rating, ratingsCount, joinedAt]
+      properties:
+        id: { type: string }
+        phone: { type: string }
+        name: { type: string }
+        avatarColor: { type: string }
+        rating: { type: number }
+        ratingsCount: { type: integer }
+        joinedAt: { type: string, format: date-time }
+
+    Trip:
+      type: object
+      required: [id, travellerId, travellerName, travellerRating, fromCity, toCity, date, vehicle, capacityKg, status, createdAt]
+      properties:
+        id: { type: string }
+        travellerId: { type: string }
+        travellerName: { type: string }
+        travellerRating: { type: number }
+        travellerAvatarColor: { type: string }
+        fromCity: { type: string }
+        toCity: { type: string }
+        date: { type: string, format: date-time }
+        vehicle: { type: string, enum: [Bike, Car, Bus, Train, Flight] }
+        capacityKg: { type: number }
+        notes: { type: string, nullable: true }
+        status: { type: string, enum: [ACTIVE, COMPLETED, CANCELLED] }
+        createdAt: { type: string, format: date-time }
+
+    CreateTripBody:
+      type: object
+      required: [fromCity, toCity, date, vehicle, capacityKg]
+      properties:
+        fromCity: { type: string, minLength: 1 }
+        toCity: { type: string, minLength: 1 }
+        date: { type: string, format: date-time }
+        vehicle: { type: string, enum: [Bike, Car, Bus, Train, Flight] }
+        capacityKg: { type: number, minimum: 0.1 }
+        notes: { type: string }
+
+    Parcel:
+      type: object
+      required: [id, senderId, senderName, fromCity, toCity, date, category, description, weightKg, priceOffer, receiverName, receiverPhone, status, createdAt]
+      properties:
+        id: { type: string }
+        senderId: { type: string }
+        senderName: { type: string }
+        senderAvatarColor: { type: string }
+        fromCity: { type: string }
+        toCity: { type: string }
+        date: { type: string, format: date-time }
+        category: { type: string, enum: [Documents, Electronics, Clothing, Food, Medicine, Other] }
+        description: { type: string }
+        weightKg: { type: number }
+        priceOffer: { type: integer }
+        receiverName: { type: string }
+        receiverPhone: { type: string }
+        imageUri: { type: string, nullable: true }
+        status: { type: string, enum: [OPEN, MATCHED, DELIVERED, CANCELLED, FAILED] }
+        createdAt: { type: string, format: date-time }
+
+    CreateParcelBody:
+      type: object
+      required: [fromCity, toCity, date, category, description, weightKg, priceOffer, receiverName, receiverPhone]
+      properties:
+        fromCity: { type: string, minLength: 1 }
+        toCity: { type: string, minLength: 1 }
+        date: { type: string, format: date-time }
+        category: { type: string, enum: [Documents, Electronics, Clothing, Food, Medicine, Other] }
+        description: { type: string, minLength: 1 }
+        weightKg: { type: number, minimum: 0.01 }
+        priceOffer: { type: integer, minimum: 0 }
+        receiverName: { type: string, minLength: 1 }
+        receiverPhone: { type: string, minLength: 4 }
+        imageUri: { type: string }
+
+    DeliveryRequest:
+      type: object
+      required: [id, parcelId, tripId, senderId, travellerId, status, createdAt, updatedAt, parcel, trip, sender, traveller]
+      properties:
+        id: { type: string }
+        parcelId: { type: string }
+        tripId: { type: string }
+        senderId: { type: string }
+        travellerId: { type: string }
+        status: { type: string, enum: [PENDING, ACCEPTED, REJECTED, CANCELLED] }
+        message: { type: string, nullable: true }
+        createdAt: { type: string, format: date-time }
+        updatedAt: { type: string, format: date-time }
+        parcel: { $ref: "#/components/schemas/Parcel" }
+        trip: { $ref: "#/components/schemas/Trip" }
+        sender: { $ref: "#/components/schemas/User" }
+        traveller: { $ref: "#/components/schemas/User" }
+
+    CreateRequestBody:
+      type: object
+      required: [parcelId, tripId]
+      properties:
+        parcelId: { type: string }
+        tripId: { type: string }
+        message: { type: string }
+
+    Delivery:
+      type: object
+      required: [id, requestId, parcelId, tripId, senderId, travellerId, stage, otp, pricePaid, escrowReleased, senderRated, travellerRated, parcel, trip, sender, traveller]
+      properties:
+        id: { type: string }
+        requestId: { type: string }
+        parcelId: { type: string }
+        tripId: { type: string }
+        senderId: { type: string }
+        travellerId: { type: string }
+        stage: { type: string, enum: [AWAITING_PICKUP, IN_TRANSIT, DELIVERED, FAILED] }
+        pickupConfirmedAt: { type: string, format: date-time, nullable: true }
+        deliveryConfirmedAt: { type: string, format: date-time, nullable: true }
+        otp: { type: string }
+        pricePaid: { type: integer }
+        escrowReleased: { type: boolean }
+        failedReason: { type: string, nullable: true }
+        senderRated: { type: boolean }
+        travellerRated: { type: boolean }
+        parcel: { $ref: "#/components/schemas/Parcel" }
+        trip: { $ref: "#/components/schemas/Trip" }
+        sender: { $ref: "#/components/schemas/User" }
+        traveller: { $ref: "#/components/schemas/User" }
+
+    HandoffBody:
+      type: object
+      required: [otp]
+      properties:
+        otp: { type: string, minLength: 4, maxLength: 8 }
+
+    FailBody:
+      type: object
+      required: [reason]
+      properties:
+        reason: { type: string, minLength: 1 }
+
+    RateBody:
+      type: object
+      required: [stars]
+      properties:
+        stars: { type: integer, minimum: 1, maximum: 5 }
+        comment: { type: string }
+
+    ChatThread:
+      type: object
+      required: [threadId, otherUser, lastMessage, unreadCount, deliveryStage, parcelTitle]
+      properties:
+        threadId: { type: string }
+        otherUser: { $ref: "#/components/schemas/User" }
+        parcelTitle: { type: string }
+        deliveryStage: { type: string, nullable: true }
+        unreadCount: { type: integer }
+        lastMessage: { $ref: "#/components/schemas/ChatMessage" }
+
+    ChatMessage:
+      type: object
+      required: [id, threadId, senderId, recipientId, text, createdAt]
+      properties:
+        id: { type: string }
+        threadId: { type: string }
+        senderId: { type: string }
+        recipientId: { type: string }
+        text: { type: string }
+        readAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    SendMessageBody:
+      type: object
+      required: [text]
+      properties:
+        text: { type: string, minLength: 1, maxLength: 1000 }
+
+    Notification:
+      type: object
+      required: [id, type, title, body, createdAt, read]
+      properties:
+        id: { type: string }
+        type: { type: string }
+        title: { type: string }
+        body: { type: string }
+        data: { type: string, nullable: true }
+        read: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    UnreadCounts:
+      type: object
+      required: [notifications, chats, requests]
+      properties:
+        notifications: { type: integer }
+        chats: { type: integer }
+        requests: { type: integer }

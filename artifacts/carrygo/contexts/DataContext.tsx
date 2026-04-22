@@ -1,22 +1,121 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 
-import { makeId, makeOtp } from "@/lib/id";
-import type {
-  ChatMessage,
-  Delivery,
-  DeliveryRequest,
-  Parcel,
-  Trip,
-} from "@/types";
+import { apiFetch, ApiError } from "@/lib/api";
+import { useAuth } from "@/contexts/AuthContext";
+import type { ChatMessage, Delivery, DeliveryRequest, Parcel, Trip, VehicleType, ParcelCategory } from "@/types";
 
-const KEYS = {
-  trips: "carrygo:trips",
-  parcels: "carrygo:parcels",
-  requests: "carrygo:requests",
-  messages: "carrygo:messages",
-  deliveries: "carrygo:deliveries",
+type ApiUser = {
+  id: string; phone: string; name: string; avatarColor: string;
+  rating: number; ratingsCount: number; joinedAt: string;
 };
+type ApiTrip = {
+  id: string; travellerId: string; travellerName: string; travellerRating: number;
+  travellerAvatarColor?: string;
+  fromCity: string; toCity: string; date: string; vehicle: VehicleType; capacityKg: number;
+  notes?: string | null; status: Trip["status"]; createdAt: string;
+};
+type ApiParcel = {
+  id: string; senderId: string; senderName: string; senderAvatarColor?: string;
+  fromCity: string; toCity: string; date: string; category: ParcelCategory;
+  description: string; weightKg: number; priceOffer: number;
+  receiverName: string; receiverPhone: string; imageUri?: string | null;
+  status: Parcel["status"]; createdAt: string;
+};
+type ApiRequest = {
+  id: string; parcelId: string; tripId: string; senderId: string; travellerId: string;
+  status: DeliveryRequest["status"]; message?: string | null;
+  createdAt: string; updatedAt: string;
+  parcel: ApiParcel; trip: ApiTrip; sender: ApiUser; traveller: ApiUser;
+};
+type ApiDelivery = {
+  id: string; requestId: string; parcelId: string; tripId: string;
+  senderId: string; travellerId: string; stage: Delivery["stage"];
+  pickupConfirmedAt?: string | null; deliveryConfirmedAt?: string | null;
+  otp: string; pricePaid: number; escrowReleased: boolean;
+  failedReason?: string | null; senderRated: boolean; travellerRated: boolean;
+  parcel: ApiParcel; trip: ApiTrip; sender: ApiUser; traveller: ApiUser;
+};
+type ApiMessage = {
+  id: string; threadId: string; senderId: string; recipientId: string;
+  text: string; readAt?: string | null; createdAt: string;
+};
+
+const ts = (s: string | null | undefined): number => (s ? Date.parse(s) : 0);
+
+function tripFromApi(t: ApiTrip): Trip {
+  return {
+    id: t.id,
+    travellerId: t.travellerId,
+    travellerName: t.travellerName,
+    travellerRating: t.travellerRating,
+    fromCity: t.fromCity,
+    toCity: t.toCity,
+    date: ts(t.date),
+    vehicle: t.vehicle,
+    capacityKg: t.capacityKg,
+    notes: t.notes ?? undefined,
+    createdAt: ts(t.createdAt),
+    status: t.status,
+  };
+}
+function parcelFromApi(p: ApiParcel): Parcel {
+  return {
+    id: p.id,
+    senderId: p.senderId,
+    senderName: p.senderName,
+    fromCity: p.fromCity,
+    toCity: p.toCity,
+    date: ts(p.date),
+    category: p.category,
+    description: p.description,
+    weightKg: p.weightKg,
+    priceOffer: p.priceOffer,
+    receiverName: p.receiverName,
+    receiverPhone: p.receiverPhone,
+    imageUri: p.imageUri ?? undefined,
+    createdAt: ts(p.createdAt),
+    status: p.status,
+  };
+}
+function requestFromApi(r: ApiRequest): DeliveryRequest {
+  return {
+    id: r.id,
+    parcelId: r.parcelId,
+    tripId: r.tripId,
+    senderId: r.senderId,
+    travellerId: r.travellerId,
+    status: r.status,
+    message: r.message ?? undefined,
+    createdAt: ts(r.createdAt),
+    updatedAt: ts(r.updatedAt),
+  };
+}
+function deliveryFromApi(d: ApiDelivery): Delivery {
+  return {
+    id: d.id,
+    requestId: d.requestId,
+    parcelId: d.parcelId,
+    tripId: d.tripId,
+    senderId: d.senderId,
+    travellerId: d.travellerId,
+    stage: d.stage,
+    pickupConfirmedAt: d.pickupConfirmedAt ? ts(d.pickupConfirmedAt) : undefined,
+    deliveryConfirmedAt: d.deliveryConfirmedAt ? ts(d.deliveryConfirmedAt) : undefined,
+    otp: d.otp,
+    pricePaid: d.pricePaid,
+    escrowReleased: d.escrowReleased,
+    failedReason: d.failedReason ?? undefined,
+  };
+}
+function messageFromApi(m: ApiMessage): ChatMessage {
+  return {
+    id: m.id,
+    threadId: m.threadId,
+    senderId: m.senderId,
+    text: m.text,
+    createdAt: ts(m.createdAt),
+  };
+}
 
 type DataState = {
   hydrated: boolean;
@@ -25,6 +124,8 @@ type DataState = {
   requests: DeliveryRequest[];
   messages: ChatMessage[];
   deliveries: Delivery[];
+
+  refresh: () => Promise<void>;
 
   createTrip: (t: Omit<Trip, "id" | "createdAt" | "status">) => Promise<Trip>;
   cancelTrip: (id: string) => Promise<void>;
@@ -39,10 +140,13 @@ type DataState = {
 
   sendMessage: (threadId: string, senderId: string, text: string) => Promise<ChatMessage>;
   threadMessages: (threadId: string) => ChatMessage[];
+  loadThreadMessages: (threadId: string) => Promise<void>;
+  markThreadRead: (threadId: string) => Promise<void>;
 
   confirmPickup: (deliveryId: string) => Promise<void>;
   confirmDelivery: (deliveryId: string, otp: string) => Promise<void>;
   markDeliveryFailed: (deliveryId: string, reason: string) => Promise<void>;
+  rateDelivery: (deliveryId: string, stars: number, comment?: string) => Promise<void>;
 
   findMatchingTrips: (parcel: Parcel) => Trip[];
   seedDemoIfEmpty: () => Promise<void>;
@@ -51,6 +155,7 @@ type DataState = {
 const DataCtx = createContext<DataState | null>(null);
 
 export function DataProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth();
   const [hydrated, setHydrated] = useState<boolean>(false);
   const [trips, setTrips] = useState<Trip[]>([]);
   const [parcels, setParcels] = useState<Parcel[]>([]);
@@ -58,203 +163,181 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
 
-  useEffect(() => {
-    (async () => {
-      const [t, p, r, m, d] = await Promise.all([
-        AsyncStorage.getItem(KEYS.trips),
-        AsyncStorage.getItem(KEYS.parcels),
-        AsyncStorage.getItem(KEYS.requests),
-        AsyncStorage.getItem(KEYS.messages),
-        AsyncStorage.getItem(KEYS.deliveries),
+  const refresh = useCallback(async () => {
+    try {
+      const [tripsRes, parcelsRes, requestsRes, deliveriesRes] = await Promise.all([
+        apiFetch<ApiTrip[]>("GET", "/api/trips"),
+        user ? apiFetch<ApiParcel[]>("GET", "/api/parcels?mine=true").catch(() => [] as ApiParcel[]) : Promise.resolve([] as ApiParcel[]),
+        user ? apiFetch<ApiRequest[]>("GET", "/api/requests").catch(() => [] as ApiRequest[]) : Promise.resolve([] as ApiRequest[]),
+        user ? apiFetch<ApiDelivery[]>("GET", "/api/deliveries").catch(() => [] as ApiDelivery[]) : Promise.resolve([] as ApiDelivery[]),
       ]);
-      if (t) setTrips(JSON.parse(t) as Trip[]);
-      if (p) setParcels(JSON.parse(p) as Parcel[]);
-      if (r) setRequests(JSON.parse(r) as DeliveryRequest[]);
-      if (m) setMessages(JSON.parse(m) as ChatMessage[]);
-      if (d) setDeliveries(JSON.parse(d) as Delivery[]);
+      setTrips(tripsRes.map(tripFromApi));
+      setParcels(parcelsRes.map(parcelFromApi));
+      // Also include parcels embedded in requests/deliveries (for chat lookups)
+      const extraParcels: Parcel[] = [];
+      const extraTrips: Trip[] = [];
+      for (const r of requestsRes) {
+        extraParcels.push(parcelFromApi(r.parcel));
+        extraTrips.push(tripFromApi(r.trip));
+      }
+      for (const d of deliveriesRes) {
+        extraParcels.push(parcelFromApi(d.parcel));
+        extraTrips.push(tripFromApi(d.trip));
+      }
+      setParcels((cur) => mergeById(cur.concat(extraParcels)));
+      setTrips((cur) => mergeById(cur.concat(extraTrips)));
+      setRequests(requestsRes.map(requestFromApi));
+      setDeliveries(deliveriesRes.map(deliveryFromApi));
+    } finally {
       setHydrated(true);
-    })();
-  }, []);
+    }
+  }, [user]);
 
-  const persist = async <T,>(key: string, value: T) => {
-    await AsyncStorage.setItem(key, JSON.stringify(value));
-  };
+  useEffect(() => {
+    refresh();
+    if (!user) return;
+    const interval = setInterval(() => {
+      refresh().catch(() => {});
+    }, 12000);
+    return () => clearInterval(interval);
+  }, [refresh, user]);
 
   const createTrip: DataState["createTrip"] = async (t) => {
-    const trip: Trip = { ...t, id: makeId("trip"), createdAt: Date.now(), status: "ACTIVE" };
-    const next = [trip, ...trips];
-    setTrips(next);
-    await persist(KEYS.trips, next);
+    const res = await apiFetch<ApiTrip>("POST", "/api/trips", {
+      fromCity: t.fromCity,
+      toCity: t.toCity,
+      date: new Date(t.date).toISOString(),
+      vehicle: t.vehicle,
+      capacityKg: t.capacityKg,
+      notes: t.notes,
+    });
+    const trip = tripFromApi(res);
+    setTrips((cur) => mergeById([trip, ...cur]));
     return trip;
   };
 
   const cancelTrip = async (id: string) => {
-    const next = trips.map((t) => (t.id === id ? { ...t, status: "CANCELLED" as const } : t));
-    setTrips(next);
-    await persist(KEYS.trips, next);
+    const res = await apiFetch<ApiTrip>("POST", `/api/trips/${id}/cancel`);
+    setTrips((cur) => cur.map((t) => (t.id === id ? tripFromApi(res) : t)));
   };
 
   const createParcel: DataState["createParcel"] = async (p) => {
-    const parcel: Parcel = { ...p, id: makeId("parcel"), createdAt: Date.now(), status: "OPEN" };
-    const next = [parcel, ...parcels];
-    setParcels(next);
-    await persist(KEYS.parcels, next);
+    const res = await apiFetch<ApiParcel>("POST", "/api/parcels", {
+      fromCity: p.fromCity,
+      toCity: p.toCity,
+      date: new Date(p.date).toISOString(),
+      category: p.category,
+      description: p.description,
+      weightKg: p.weightKg,
+      priceOffer: p.priceOffer,
+      receiverName: p.receiverName,
+      receiverPhone: p.receiverPhone,
+      imageUri: p.imageUri,
+    });
+    const parcel = parcelFromApi(res);
+    setParcels((cur) => mergeById([parcel, ...cur]));
     return parcel;
   };
 
   const cancelParcel = async (id: string) => {
-    const next = parcels.map((p) => (p.id === id ? { ...p, status: "CANCELLED" as const } : p));
-    setParcels(next);
-    await persist(KEYS.parcels, next);
+    const res = await apiFetch<ApiParcel>("POST", `/api/parcels/${id}/cancel`);
+    setParcels((cur) => cur.map((p) => (p.id === id ? parcelFromApi(res) : p)));
   };
 
-  const createRequest: DataState["createRequest"] = async ({ parcelId, tripId, senderId, travellerId, message }) => {
-    const existing = requests.find(
-      (r) => r.parcelId === parcelId && r.tripId === tripId && r.status === "PENDING",
-    );
-    if (existing) return existing;
-    const req: DeliveryRequest = {
-      id: makeId("req"),
-      parcelId,
-      tripId,
-      senderId,
-      travellerId,
-      status: "PENDING",
-      message,
-      createdAt: Date.now(),
-      updatedAt: Date.now(),
-    };
-    const next = [req, ...requests];
-    setRequests(next);
-    await persist(KEYS.requests, next);
+  const createRequest: DataState["createRequest"] = async ({ parcelId, tripId, message }) => {
+    const res = await apiFetch<ApiRequest>("POST", "/api/requests", { parcelId, tripId, message });
+    const req = requestFromApi(res);
+    setRequests((cur) => mergeByIdReq([req, ...cur]));
     return req;
   };
 
   const acceptRequest: DataState["acceptRequest"] = async (id) => {
-    const req = requests.find((r) => r.id === id);
-    if (!req) throw new Error("Request not found");
-    const parcel = parcels.find((p) => p.id === req.parcelId);
-    if (!parcel) throw new Error("Parcel not found");
-
-    const nextRequests = requests.map((r) =>
-      r.id === id
-        ? { ...r, status: "ACCEPTED" as const, updatedAt: Date.now() }
-        : r.parcelId === req.parcelId && r.status === "PENDING"
-          ? { ...r, status: "REJECTED" as const, updatedAt: Date.now() }
+    const res = await apiFetch<ApiDelivery>("POST", `/api/requests/${id}/accept`);
+    const delivery = deliveryFromApi(res);
+    setDeliveries((cur) => mergeByIdDlv([delivery, ...cur]));
+    setRequests((cur) =>
+      cur.map((r) =>
+        r.id === id
+          ? { ...r, status: "ACCEPTED", updatedAt: Date.now() }
+          : r.parcelId === delivery.parcelId && r.status === "PENDING"
+          ? { ...r, status: "REJECTED", updatedAt: Date.now() }
           : r,
+      ),
     );
-    setRequests(nextRequests);
-    await persist(KEYS.requests, nextRequests);
-
-    const nextParcels = parcels.map((p) =>
-      p.id === req.parcelId ? { ...p, status: "MATCHED" as const } : p,
+    setParcels((cur) =>
+      cur.map((p) => (p.id === delivery.parcelId ? { ...p, status: "MATCHED" } : p)),
     );
-    setParcels(nextParcels);
-    await persist(KEYS.parcels, nextParcels);
-
-    const delivery: Delivery = {
-      id: makeId("dlv"),
-      requestId: req.id,
-      parcelId: req.parcelId,
-      tripId: req.tripId,
-      senderId: req.senderId,
-      travellerId: req.travellerId,
-      stage: "AWAITING_PICKUP",
-      otp: makeOtp(),
-      pricePaid: parcel.priceOffer,
-      escrowReleased: false,
-    };
-    const nextDeliveries = [delivery, ...deliveries];
-    setDeliveries(nextDeliveries);
-    await persist(KEYS.deliveries, nextDeliveries);
     return delivery;
   };
 
   const rejectRequest = async (id: string) => {
-    const next = requests.map((r) =>
-      r.id === id ? { ...r, status: "REJECTED" as const, updatedAt: Date.now() } : r,
-    );
-    setRequests(next);
-    await persist(KEYS.requests, next);
+    await apiFetch("POST", `/api/requests/${id}/reject`);
+    setRequests((cur) => cur.map((r) => (r.id === id ? { ...r, status: "REJECTED", updatedAt: Date.now() } : r)));
   };
 
   const cancelRequest = async (id: string) => {
-    const next = requests.map((r) =>
-      r.id === id ? { ...r, status: "CANCELLED" as const, updatedAt: Date.now() } : r,
-    );
-    setRequests(next);
-    await persist(KEYS.requests, next);
+    await apiFetch("POST", `/api/requests/${id}/cancel`);
+    setRequests((cur) => cur.map((r) => (r.id === id ? { ...r, status: "CANCELLED", updatedAt: Date.now() } : r)));
   };
 
-  const sendMessage: DataState["sendMessage"] = async (threadId, senderId, text) => {
-    const msg: ChatMessage = {
-      id: makeId("msg"),
-      threadId,
-      senderId,
-      text,
-      createdAt: Date.now(),
-    };
-    const next = [...messages, msg];
-    setMessages(next);
-    await persist(KEYS.messages, next);
+  const loadThreadMessages = async (threadId: string) => {
+    try {
+      const res = await apiFetch<ApiMessage[]>("GET", `/api/chats/${threadId}/messages`);
+      const msgs = res.map(messageFromApi);
+      setMessages((cur) => {
+        const remaining = cur.filter((m) => m.threadId !== threadId);
+        return [...remaining, ...msgs];
+      });
+    } catch (e) {
+      if (!(e instanceof ApiError) || e.status !== 404) throw e;
+    }
+  };
+
+  const markThreadRead = async (threadId: string) => {
+    try {
+      await apiFetch("POST", `/api/chats/${threadId}/read`);
+    } catch {
+      /* ignore */
+    }
+  };
+
+  const sendMessage: DataState["sendMessage"] = async (threadId, _senderId, text) => {
+    const res = await apiFetch<ApiMessage>("POST", `/api/chats/${threadId}/messages`, { text });
+    const msg = messageFromApi(res);
+    setMessages((cur) => [...cur, msg]);
     return msg;
   };
 
   const threadMessages = useCallback(
-    (threadId: string) => messages.filter((m) => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt),
+    (threadId: string) =>
+      messages.filter((m) => m.threadId === threadId).sort((a, b) => a.createdAt - b.createdAt),
     [messages],
   );
 
   const confirmPickup = async (deliveryId: string) => {
-    const next = deliveries.map((d) =>
-      d.id === deliveryId
-        ? { ...d, stage: "IN_TRANSIT" as const, pickupConfirmedAt: Date.now() }
-        : d,
-    );
-    setDeliveries(next);
-    await persist(KEYS.deliveries, next);
+    const res = await apiFetch<ApiDelivery>("POST", `/api/deliveries/${deliveryId}/pickup`);
+    const dlv = deliveryFromApi(res);
+    setDeliveries((cur) => cur.map((d) => (d.id === deliveryId ? dlv : d)));
   };
 
   const confirmDelivery: DataState["confirmDelivery"] = async (deliveryId, otp) => {
-    const dlv = deliveries.find((d) => d.id === deliveryId);
-    if (!dlv) throw new Error("Delivery not found");
-    if (dlv.otp !== otp) throw new Error("Wrong OTP. Ask the receiver for the correct code.");
-    const nextDeliveries = deliveries.map((d) =>
-      d.id === deliveryId
-        ? {
-            ...d,
-            stage: "DELIVERED" as const,
-            deliveryConfirmedAt: Date.now(),
-            escrowReleased: true,
-          }
-        : d,
-    );
-    setDeliveries(nextDeliveries);
-    await persist(KEYS.deliveries, nextDeliveries);
-
-    const nextParcels = parcels.map((p) =>
-      p.id === dlv.parcelId ? { ...p, status: "DELIVERED" as const } : p,
-    );
-    setParcels(nextParcels);
-    await persist(KEYS.parcels, nextParcels);
+    const res = await apiFetch<ApiDelivery>("POST", `/api/deliveries/${deliveryId}/handoff`, { otp });
+    const dlv = deliveryFromApi(res);
+    setDeliveries((cur) => cur.map((d) => (d.id === deliveryId ? dlv : d)));
+    setParcels((cur) => cur.map((p) => (p.id === dlv.parcelId ? { ...p, status: "DELIVERED" } : p)));
   };
 
   const markDeliveryFailed: DataState["markDeliveryFailed"] = async (deliveryId, reason) => {
-    const dlv = deliveries.find((d) => d.id === deliveryId);
-    if (!dlv) return;
-    const nextDeliveries = deliveries.map((d) =>
-      d.id === deliveryId
-        ? { ...d, stage: "FAILED" as const, failedReason: reason }
-        : d,
-    );
-    setDeliveries(nextDeliveries);
-    await persist(KEYS.deliveries, nextDeliveries);
+    const res = await apiFetch<ApiDelivery>("POST", `/api/deliveries/${deliveryId}/fail`, { reason });
+    const dlv = deliveryFromApi(res);
+    setDeliveries((cur) => cur.map((d) => (d.id === deliveryId ? dlv : d)));
+    setParcels((cur) => cur.map((p) => (p.id === dlv.parcelId ? { ...p, status: "FAILED" } : p)));
+  };
 
-    const nextParcels = parcels.map((p) =>
-      p.id === dlv.parcelId ? { ...p, status: "FAILED" as const } : p,
-    );
-    setParcels(nextParcels);
-    await persist(KEYS.parcels, nextParcels);
+  const rateDelivery = async (deliveryId: string, stars: number, comment?: string) => {
+    const res = await apiFetch<ApiDelivery>("POST", `/api/deliveries/${deliveryId}/rate`, { stars, comment });
+    const dlv = deliveryFromApi(res);
+    setDeliveries((cur) => cur.map((d) => (d.id === deliveryId ? dlv : d)));
   };
 
   const findMatchingTrips: DataState["findMatchingTrips"] = useCallback(
@@ -274,55 +357,8 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   );
 
   const seedDemoIfEmpty = useCallback(async () => {
-    if (trips.length > 0) return;
-    const now = Date.now();
-    const demoTrips: Trip[] = [
-      {
-        id: makeId("trip"),
-        travellerId: "demo_user_1",
-        travellerName: "Aarav Mehta",
-        travellerRating: 4.8,
-        fromCity: "Mumbai",
-        toCity: "Delhi",
-        date: now + 2 * 24 * 60 * 60 * 1000,
-        vehicle: "Flight",
-        capacityKg: 5,
-        notes: "Cabin baggage only.",
-        createdAt: now,
-        status: "ACTIVE",
-      },
-      {
-        id: makeId("trip"),
-        travellerId: "demo_user_2",
-        travellerName: "Priya Shah",
-        travellerRating: 4.9,
-        fromCity: "Mumbai",
-        toCity: "Pune",
-        date: now + 1 * 24 * 60 * 60 * 1000,
-        vehicle: "Car",
-        capacityKg: 15,
-        notes: "Driving solo, lots of room.",
-        createdAt: now,
-        status: "ACTIVE",
-      },
-      {
-        id: makeId("trip"),
-        travellerId: "demo_user_3",
-        travellerName: "Rohan Patel",
-        travellerRating: 4.7,
-        fromCity: "Bangalore",
-        toCity: "Hyderabad",
-        date: now + 3 * 24 * 60 * 60 * 1000,
-        vehicle: "Train",
-        capacityKg: 8,
-        notes: "Tatkal, 2AC.",
-        createdAt: now,
-        status: "ACTIVE",
-      },
-    ];
-    setTrips(demoTrips);
-    await persist(KEYS.trips, demoTrips);
-  }, [trips.length]);
+    // No-op: demo trips are seeded server-side on first launch.
+  }, []);
 
   const value = useMemo<DataState>(
     () => ({
@@ -332,6 +368,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       requests,
       messages,
       deliveries,
+      refresh,
       createTrip,
       cancelTrip,
       createParcel,
@@ -342,17 +379,36 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
       cancelRequest,
       sendMessage,
       threadMessages,
+      loadThreadMessages,
+      markThreadRead,
       confirmPickup,
       confirmDelivery,
       markDeliveryFailed,
+      rateDelivery,
       findMatchingTrips,
       seedDemoIfEmpty,
     }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [hydrated, trips, parcels, requests, messages, deliveries, threadMessages, findMatchingTrips, seedDemoIfEmpty],
+    [hydrated, trips, parcels, requests, messages, deliveries, threadMessages, findMatchingTrips, seedDemoIfEmpty, refresh],
   );
 
   return <DataCtx.Provider value={value}>{children}</DataCtx.Provider>;
+}
+
+function mergeById<T extends { id: string; createdAt: number }>(rows: T[]): T[] {
+  const map = new Map<string, T>();
+  for (const r of rows) map.set(r.id, r);
+  return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+function mergeByIdReq(rows: DeliveryRequest[]): DeliveryRequest[] {
+  const map = new Map<string, DeliveryRequest>();
+  for (const r of rows) map.set(r.id, r);
+  return [...map.values()].sort((a, b) => b.createdAt - a.createdAt);
+}
+function mergeByIdDlv(rows: Delivery[]): Delivery[] {
+  const map = new Map<string, Delivery>();
+  for (const r of rows) map.set(r.id, r);
+  return [...map.values()];
 }
 
 export function useData(): DataState {

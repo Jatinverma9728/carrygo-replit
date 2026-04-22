@@ -19,6 +19,7 @@ import { SectionHeader } from "@/components/SectionHeader";
 import { TripCard } from "@/components/TripCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { useColors } from "@/hooks/useColors";
 
 export default function HomeScreen() {
@@ -27,6 +28,7 @@ export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
   const { trips, parcels, deliveries, hydrated, seedDemoIfEmpty } = useData();
+  const { counts } = useNotifications();
 
   useEffect(() => {
     if (hydrated) seedDemoIfEmpty();
@@ -76,9 +78,25 @@ export default function HomeScreen() {
           </Text>
         </View>
         {user ? (
-          <Pressable onPress={() => router.push("/profile")} hitSlop={10}>
-            <Avatar name={user.name} color={user.avatarColor} size={44} />
-          </Pressable>
+          <View style={{ flexDirection: "row", alignItems: "center", gap: 10 }}>
+            <Pressable
+              onPress={() => router.push("/notifications")}
+              hitSlop={10}
+              style={[styles.bell, { backgroundColor: c.accent, borderColor: c.border }]}
+            >
+              <Feather name="bell" size={18} color={c.foreground} />
+              {counts.notifications > 0 ? (
+                <View style={[styles.bellDot, { backgroundColor: c.primary, borderColor: c.background }]}>
+                  <Text style={styles.bellDotText}>
+                    {counts.notifications > 9 ? "9+" : String(counts.notifications)}
+                  </Text>
+                </View>
+              ) : null}
+            </Pressable>
+            <Pressable onPress={() => router.push("/profile")} hitSlop={10}>
+              <Avatar name={user.name} color={user.avatarColor} size={44} />
+            </Pressable>
+          </View>
         ) : (
           <Pressable
             onPress={() => router.push("/auth")}
@@ -262,4 +280,29 @@ const styles = StyleSheet.create({
   statusDot: { width: 10, height: 10, borderRadius: 5 },
   deliveryTitle: { fontFamily: "Inter_600SemiBold", fontSize: 15 },
   deliverySub: { fontFamily: "Inter_400Regular", fontSize: 12, marginTop: 2 },
+  bell: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: StyleSheet.hairlineWidth,
+  },
+  bellDot: {
+    position: "absolute",
+    top: -4,
+    right: -4,
+    minWidth: 18,
+    height: 18,
+    borderRadius: 9,
+    paddingHorizontal: 4,
+    alignItems: "center",
+    justifyContent: "center",
+    borderWidth: 2,
+  },
+  bellDotText: {
+    color: "#FFFFFF",
+    fontFamily: "Inter_700Bold",
+    fontSize: 10,
+  },
 });

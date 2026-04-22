@@ -1,11 +1,7 @@
-import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useState } from "react";
 
-import { avatarColor } from "@/lib/format";
-import { makeId } from "@/lib/id";
+import { apiFetch, loadToken, setToken } from "@/lib/api";
 import type { User } from "@/types";
-
-const STORAGE_KEY = "carrygo:user";
 
 type AuthState = {
   user: User | null;
@@ -18,6 +14,28 @@ type AuthState = {
 
 const AuthCtx = createContext<AuthState | null>(null);
 
+type ApiUser = {
+  id: string;
+  phone: string;
+  name: string;
+  avatarColor: string;
+  rating: number;
+  ratingsCount: number;
+  joinedAt: string;
+};
+
+function fromApi(u: ApiUser): User {
+  return {
+    id: u.id,
+    phone: u.phone,
+    name: u.name,
+    avatarColor: u.avatarColor,
+    rating: u.rating,
+    ratingsCount: u.ratingsCount,
+    joinedAt: Date.parse(u.joinedAt),
+  };
+}
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -25,50 +43,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => {
     (async () => {
       try {
-        const raw = await AsyncStorage.getItem(STORAGE_KEY);
-        if (raw) setUser(JSON.parse(raw) as User);
+        const token = await loadToken();
+        if (!token) return;
+        const me = await apiFetch<ApiUser>("GET", "/api/auth/me");
+        setUser(fromApi(me));
+      } catch {
+        await setToken(null);
       } finally {
         setLoading(false);
       }
     })();
   }, []);
 
-  const sendOtp = async (_phone: string): Promise<string> => {
-    // Demo mode: OTP is always 1234
-    return "1234";
+  const sendOtp = async (phone: string): Promise<string> => {
+    const res = await apiFetch<{ sent: boolean; demoCode?: string }>(
+      "POST",
+      "/api/auth/otp/request",
+      { phone },
+    );
+    return res.demoCode ?? "1234";
   };
 
-  const verifyOtp = async (
-    phone: string,
-    code: string,
-    name: string,
-  ): Promise<User> => {
-    if (code !== "1234") throw new Error("Invalid OTP. Use 1234 in demo mode.");
-    const trimmed = name.trim() || "Guest";
-    const next: User = {
-      id: makeId("user"),
-      phone,
-      name: trimmed,
-      rating: 5,
-      ratingsCount: 0,
-      joinedAt: Date.now(),
-      avatarColor: avatarColor(trimmed + phone),
-    };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
-    return next;
+  const verifyOtp = async (phone: string, code: string, name: string): Promise<User> => {
+    const res = await apiFetch<{ token: string; user: ApiUser }>(
+      "POST",
+      "/api/auth/otp/verify",
+      { phone, code, name },
+    );
+    await setToken(res.token);
+    const u = fromApi(res.user);
+    setUser(u);
+    return u;
   };
 
   const signOut = async () => {
-    await AsyncStorage.removeItem(STORAGE_KEY);
+    try {
+      await apiFetch("POST", "/api/auth/signout");
+    } catch {
+      /* ignore */
+    }
+    await setToken(null);
     setUser(null);
   };
 
   const updateUser = async (patch: Partial<User>) => {
-    if (!user) return;
-    const next = { ...user, ...patch };
-    await AsyncStorage.setItem(STORAGE_KEY, JSON.stringify(next));
-    setUser(next);
+    const res = await apiFetch<ApiUser>("PATCH", "/api/auth/me", {
+      name: patch.name,
+      avatarColor: patch.avatarColor,
+    });
+    setUser(fromApi(res));
   };
 
   return (

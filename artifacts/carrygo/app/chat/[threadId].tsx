@@ -1,6 +1,6 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   FlatList,
   Platform,
@@ -26,8 +26,18 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { user } = useAuth();
-  const { requests, parcels, trips, threadMessages, sendMessage, deliveries } = useData();
+  const { requests, parcels, trips, threadMessages, sendMessage, deliveries, loadThreadMessages, markThreadRead } = useData();
   const [text, setText] = useState<string>("");
+
+  useEffect(() => {
+    if (!threadId) return;
+    loadThreadMessages(threadId).catch(() => {});
+    markThreadRead(threadId).catch(() => {});
+    const id = setInterval(() => {
+      loadThreadMessages(threadId).catch(() => {});
+    }, 5000);
+    return () => clearInterval(id);
+  }, [threadId, loadThreadMessages, markThreadRead]);
 
   const req = useMemo(() => requests.find((r) => r.id === threadId), [requests, threadId]);
   const parcel = req ? parcels.find((p) => p.id === req.parcelId) : undefined;

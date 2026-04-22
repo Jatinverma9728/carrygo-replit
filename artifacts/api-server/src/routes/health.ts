@@ -1,5 +1,6 @@
 import { Router, type IRouter } from "express";
-import { HealthCheckResponse } from "@workspace/api-zod";
+import { zodSchemas } from "@workspace/api-zod";
+const { HealthCheckResponse } = zodSchemas;
 
 const router: IRouter = Router();
 

@@ -10,14 +10,22 @@ import { Platform, StyleSheet, View, useColorScheme } from "react-native";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
 import { useAuth } from "@/contexts/AuthContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 
 function useUnreadRequests(): number {
   const { user } = useAuth();
   const { requests } = useData();
+  const { counts } = useNotifications();
   if (!user) return 0;
-  return requests.filter(
+  const pending = requests.filter(
     (r) => r.travellerId === user.id && r.status === "PENDING",
   ).length;
+  return Math.max(pending, counts.requests);
+}
+
+function useUnreadChats(): number {
+  const { counts } = useNotifications();
+  return counts.chats;
 }
 
 function NativeTabLayout() {
@@ -52,6 +60,7 @@ function ClassicTabLayout() {
   const isIOS = Platform.OS === "ios";
   const isWeb = Platform.OS === "web";
   const unread = useUnreadRequests();
+  const unreadChats = useUnreadChats();
 
   return (
     <Tabs
@@ -114,6 +123,7 @@ function ClassicTabLayout() {
         name="chats"
         options={{
           title: "Chats",
+          tabBarBadge: unreadChats > 0 ? unreadChats : undefined,
           tabBarIcon: ({ color }) =>
             isIOS ? (
               <SymbolView name="bubble.left" tintColor={color} size={24} />

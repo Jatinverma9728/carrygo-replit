@@ -16,6 +16,7 @@ import { SafeAreaProvider } from "react-native-safe-area-context";
 import { ErrorBoundary } from "@/components/ErrorBoundary";
 import { AuthProvider } from "@/contexts/AuthContext";
 import { DataProvider } from "@/contexts/DataContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 
 SplashScreen.preventAutoHideAsync();
 
@@ -33,6 +34,7 @@ function RootLayoutNav() {
       <Stack.Screen name="parcel/[id]" options={{ title: "Parcel details" }} />
       <Stack.Screen name="chat/[threadId]" options={{ title: "Chat" }} />
       <Stack.Screen name="delivery/[id]" options={{ title: "Delivery" }} />
+      <Stack.Screen name="notifications" options={{ title: "Notifications" }} />
     </Stack>
   );
 }
@@ -61,7 +63,9 @@ export default function RootLayout() {
             <KeyboardProvider>
               <AuthProvider>
                 <DataProvider>
-                  <RootLayoutNav />
+                  <NotificationsProvider>
+                    <RootLayoutNav />
+                  </NotificationsProvider>
                 </DataProvider>
               </AuthProvider>
             </KeyboardProvider>

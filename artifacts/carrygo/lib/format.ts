@@ -1,5 +1,12 @@
-export function formatDate(ts: number): string {
-  const d = new Date(ts);
+export function toTs(v: number | string | null | undefined): number {
+  if (typeof v === "number") return v;
+  if (typeof v === "string") return Date.parse(v);
+  return 0;
+}
+
+export function formatDate(ts: number | string): string {
+  const n = toTs(ts);
+  const d = new Date(n);
   return d.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
@@ -7,8 +14,8 @@ export function formatDate(ts: number): string {
   });
 }
 
-export function formatDateTime(ts: number): string {
-  const d = new Date(ts);
+export function formatDateTime(ts: number | string): string {
+  const d = new Date(toTs(ts));
   return d.toLocaleString(undefined, {
     month: "short",
     day: "numeric",
@@ -17,8 +24,8 @@ export function formatDateTime(ts: number): string {
   });
 }
 
-export function formatTimeAgo(ts: number): string {
-  const diff = Date.now() - ts;
+export function formatTimeAgo(ts: number | string): string {
+  const diff = Date.now() - toTs(ts);
   const m = Math.floor(diff / 60000);
   if (m < 1) return "just now";
   if (m < 60) return `${m}m ago`;
