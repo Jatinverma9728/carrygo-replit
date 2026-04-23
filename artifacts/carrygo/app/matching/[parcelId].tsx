@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, FlatList, StyleSheet, Text, View } from "react-native";
+import { FlatList, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -11,6 +11,7 @@ import { TripCard } from "@/components/TripCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { notify } from "@/lib/confirm";
 import { formatPrice } from "@/lib/format";
 
 export default function MatchingScreen() {
@@ -47,9 +48,8 @@ export default function MatchingScreen() {
       senderId: user.id,
       travellerId,
     });
-    Alert.alert("Request sent", "The traveller will be notified.", [
-      { text: "OK", onPress: () => router.push("/(tabs)/requests") },
-    ]);
+    notify("Request sent", "The traveller will be notified.");
+    router.push("/(tabs)/requests");
   };
 
   return (

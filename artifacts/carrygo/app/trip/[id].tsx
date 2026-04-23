@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, ScrollView, StyleSheet, Text, View } from "react-native";
+import { ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Avatar } from "@/components/Avatar";
 import { Button } from "@/components/Button";
@@ -12,6 +12,7 @@ import { RouteRow } from "@/components/RouteRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { confirm, notify } from "@/lib/confirm";
 import { formatDate } from "@/lib/format";
 
 export default function TripDetailScreen() {
@@ -41,11 +42,17 @@ export default function TripDetailScreen() {
       p.status === "OPEN",
   );
 
-  const onCancel = () => {
-    Alert.alert("Cancel trip?", "Pending requests will remain.", [
-      { text: "Keep", style: "cancel" },
-      { text: "Cancel trip", style: "destructive", onPress: () => cancelTrip(trip.id) },
-    ]);
+  const onCancel = async () => {
+    const ok = await confirm({
+      title: "Cancel trip?",
+      message: "Pending requests will remain.",
+      confirmText: "Cancel trip",
+      cancelText: "Keep",
+      destructive: true,
+    });
+    if (!ok) return;
+    try { await cancelTrip(trip.id); router.back(); }
+    catch (e) { notify("Could not cancel", e instanceof Error ? e.message : ""); }
   };
 
   return (

@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, Image, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Image, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -11,6 +11,7 @@ import { RouteRow } from "@/components/RouteRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { confirm, notify } from "@/lib/confirm";
 import { formatDate, formatPrice } from "@/lib/format";
 
 const STATUS_TONE = {
@@ -42,11 +43,17 @@ export default function ParcelDetailScreen() {
   const myRequest = requests.find((r) => r.parcelId === parcel.id && r.status === "ACCEPTED");
   const delivery = myRequest ? deliveries.find((d) => d.requestId === myRequest.id) : undefined;
 
-  const onCancel = () => {
-    Alert.alert("Cancel parcel?", "Active requests will remain visible.", [
-      { text: "Keep", style: "cancel" },
-      { text: "Cancel parcel", style: "destructive", onPress: () => cancelParcel(parcel.id) },
-    ]);
+  const onCancel = async () => {
+    const ok = await confirm({
+      title: "Cancel parcel?",
+      message: "Active requests will remain visible.",
+      confirmText: "Cancel parcel",
+      cancelText: "Keep",
+      destructive: true,
+    });
+    if (!ok) return;
+    try { await cancelParcel(parcel.id); router.back(); }
+    catch (e) { notify("Could not cancel", e instanceof Error ? e.message : ""); }
   };
 
   return (

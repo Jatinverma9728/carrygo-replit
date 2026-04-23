@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useMemo } from "react";
-import { Alert, Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, Pressable, ScrollView, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "@/components/Avatar";
@@ -15,6 +15,7 @@ import { TripCard } from "@/components/TripCard";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { confirm } from "@/lib/confirm";
 import { formatDate } from "@/lib/format";
 
 export default function ProfileScreen() {
@@ -60,11 +61,16 @@ export default function ProfileScreen() {
     );
   }
 
-  const onSignOut = () => {
-    Alert.alert("Sign out?", "You can sign back in anytime.", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Sign out", style: "destructive", onPress: () => signOut() },
-    ]);
+  const onSignOut = async () => {
+    const ok = await confirm({
+      title: "Sign out?",
+      message: "You can sign back in anytime.",
+      confirmText: "Sign out",
+      destructive: true,
+    });
+    if (!ok) return;
+    await signOut();
+    router.replace("/");
   };
 
   return (

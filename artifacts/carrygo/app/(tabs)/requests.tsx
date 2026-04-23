@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
+import { FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "@/components/Avatar";
@@ -13,6 +13,7 @@ import { SegmentedControl } from "@/components/SegmentedControl";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { confirm, notify } from "@/lib/confirm";
 import { formatDate, formatPrice, formatTimeAgo } from "@/lib/format";
 import type { DeliveryRequest } from "@/types";
 
@@ -55,28 +56,31 @@ export default function RequestsScreen() {
       const dlv = await acceptRequest(req.id);
       router.push(`/delivery/${dlv.id}`);
     } catch (e) {
-      Alert.alert("Could not accept", e instanceof Error ? e.message : "Unknown error");
+      notify("Could not accept", e instanceof Error ? e.message : "Unknown error");
     }
   };
 
-  const onReject = (req: DeliveryRequest) => {
-    Alert.alert("Reject request?", "The sender will be notified.", [
-      { text: "Cancel", style: "cancel" },
-      {
-        text: "Reject",
-        style: "destructive",
-        onPress: () => {
-          rejectRequest(req.id);
-        },
-      },
-    ]);
+  const onReject = async (req: DeliveryRequest) => {
+    const ok = await confirm({
+      title: "Reject request?",
+      message: "The sender will be notified.",
+      confirmText: "Reject",
+      destructive: true,
+    });
+    if (!ok) return;
+    try { await rejectRequest(req.id); } catch (e) { notify("Could not reject", e instanceof Error ? e.message : ""); }
   };
 
-  const onCancel = (req: DeliveryRequest) => {
-    Alert.alert("Cancel request?", "You can send it again later.", [
-      { text: "Keep", style: "cancel" },
-      { text: "Cancel request", style: "destructive", onPress: () => cancelRequest(req.id) },
-    ]);
+  const onCancel = async (req: DeliveryRequest) => {
+    const ok = await confirm({
+      title: "Cancel request?",
+      message: "You can send it again later.",
+      confirmText: "Cancel request",
+      cancelText: "Keep",
+      destructive: true,
+    });
+    if (!ok) return;
+    try { await cancelRequest(req.id); } catch (e) { notify("Could not cancel", e instanceof Error ? e.message : ""); }
   };
 
   const bottomPad = Platform.OS === "web" ? 110 : insets.bottom + 90;

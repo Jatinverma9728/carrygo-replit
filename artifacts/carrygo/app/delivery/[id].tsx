@@ -2,7 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import * as Haptics from "expo-haptics";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, Platform, ScrollView, StyleSheet, Text, View } from "react-native";
+import { Platform, ScrollView, StyleSheet, Text, View } from "react-native";
 
 import { Button } from "@/components/Button";
 import { Card } from "@/components/Card";
@@ -14,6 +14,7 @@ import { RouteRow } from "@/components/RouteRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
 import { useColors } from "@/hooks/useColors";
+import { confirm, notify } from "@/lib/confirm";
 import { formatPrice } from "@/lib/format";
 
 const STAGE_TONE = {
@@ -73,23 +74,21 @@ export default function DeliveryScreen() {
       await confirmDelivery(delivery.id, otpInput.trim());
       if (Platform.OS !== "web") Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(() => {});
     } catch (e) {
-      Alert.alert("Could not confirm", e instanceof Error ? e.message : "Wrong OTP");
+      notify("Could not confirm", e instanceof Error ? e.message : "Wrong OTP");
     }
   };
 
-  const onFail = () => {
-    Alert.alert(
-      "Mark as failed?",
-      "Use this if the receiver was not available. Escrow will be returned.",
-      [
-        { text: "Keep trying", style: "cancel" },
-        {
-          text: "Mark failed",
-          style: "destructive",
-          onPress: () => markDeliveryFailed(delivery.id, "Receiver unavailable"),
-        },
-      ],
-    );
+  const onFail = async () => {
+    const ok = await confirm({
+      title: "Mark as failed?",
+      message: "Use this if the receiver was not available. Escrow will be returned.",
+      confirmText: "Mark failed",
+      cancelText: "Keep trying",
+      destructive: true,
+    });
+    if (!ok) return;
+    try { await markDeliveryFailed(delivery.id, "Receiver unavailable"); }
+    catch (e) { notify("Could not mark failed", e instanceof Error ? e.message : ""); }
   };
 
   return (
