@@ -1,7 +1,7 @@
 import { Feather } from "@expo/vector-icons";
 import { useRouter } from "expo-router";
 import React, { useMemo, useState } from "react";
-import { Alert, FlatList, Platform, Pressable, StyleSheet, Text, View } from "react-native";
+import { Alert, FlatList, Platform, Pressable, RefreshControl, StyleSheet, Text, View } from "react-native";
 import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Avatar } from "@/components/Avatar";
@@ -30,7 +30,13 @@ export default function RequestsScreen() {
   const router = useRouter();
   const insets = useSafeAreaInsets();
   const { user } = useAuth();
-  const { requests, parcels, trips, acceptRequest, rejectRequest, cancelRequest } = useData();
+  const { requests, parcels, trips, deliveries, acceptRequest, rejectRequest, cancelRequest, refresh } = useData();
+  const [refreshing, setRefreshing] = useState<boolean>(false);
+
+  const onRefresh = async () => {
+    setRefreshing(true);
+    try { await refresh(); } finally { setRefreshing(false); }
+  };
   const [tab, setTab] = useState<Tab>("incoming");
 
   const incoming = useMemo(
@@ -101,6 +107,7 @@ export default function RequestsScreen() {
       <FlatList
         data={list}
         keyExtractor={(r) => r.id}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={c.mutedForeground} />}
         contentContainerStyle={{ padding: 20, gap: 12, paddingBottom: bottomPad }}
         renderItem={({ item }) => {
           const parcel = parcels.find((p) => p.id === item.parcelId);
@@ -184,9 +191,9 @@ export default function RequestsScreen() {
                   </Pressable>
                   <Pressable
                     onPress={() => {
-                      const dlv = list.length > 0 ? null : null;
-                      // Find delivery via context
-                      router.push(`/parcel/${parcel.id}`);
+                      const dlv = deliveries.find((d) => d.requestId === item.id);
+                      if (dlv) router.push(`/delivery/${dlv.id}`);
+                      else router.push(`/parcel/${parcel.id}`);
                     }}
                     style={({ pressed }) => [
                       styles.actionBtn,

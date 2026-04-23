@@ -9,6 +9,7 @@ import { Card } from "@/components/Card";
 import { EmptyState } from "@/components/EmptyState";
 import { Input } from "@/components/Input";
 import { Pill } from "@/components/Pill";
+import { RatingModal } from "@/components/RatingModal";
 import { RouteRow } from "@/components/RouteRow";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
@@ -36,13 +37,19 @@ export default function DeliveryScreen() {
   const router = useRouter();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { user } = useAuth();
-  const { deliveries, parcels, trips, requests, confirmPickup, confirmDelivery, markDeliveryFailed } = useData();
+  const { deliveries, parcels, trips, requests, confirmPickup, confirmDelivery, markDeliveryFailed, rateDelivery } = useData();
 
   const delivery = useMemo(() => deliveries.find((d) => d.id === id), [deliveries, id]);
   const parcel = delivery ? parcels.find((p) => p.id === delivery.parcelId) : undefined;
   const trip = delivery ? trips.find((t) => t.id === delivery.tripId) : undefined;
   const req = delivery ? requests.find((r) => r.id === delivery.requestId) : undefined;
   const [otpInput, setOtpInput] = useState<string>("");
+  const [ratingOpen, setRatingOpen] = useState<boolean>(false);
+  // Read off the embedded `senderRated`/`travellerRated` (added to delivery in api but not local type).
+  const dApi = delivery as unknown as { senderRated?: boolean; travellerRated?: boolean } | undefined;
+  const isTravellerLocal = user?.id === delivery?.travellerId;
+  const isSenderLocal = user?.id === delivery?.senderId;
+  const alreadyRated = isSenderLocal ? !!dApi?.senderRated : isTravellerLocal ? !!dApi?.travellerRated : true;
 
   if (!delivery || !parcel || !trip) {
     return (
@@ -240,9 +247,34 @@ export default function DeliveryScreen() {
             <Text style={[styles.successSub, { color: c.mutedForeground }]}>
               Payment of {formatPrice(delivery.pricePaid)} released to {trip.travellerName}.
             </Text>
+            {!alreadyRated ? (
+              <>
+                <View style={{ height: 12 }} />
+                <Button
+                  title="Rate this handoff"
+                  onPress={() => setRatingOpen(true)}
+                  fullWidth
+                  icon={<Feather name="star" size={16} color={c.primaryForeground} />}
+                />
+              </>
+            ) : (
+              <Text style={[styles.successSub, { color: c.mutedForeground, marginTop: 8 }]}>
+                Thanks for rating this handoff.
+              </Text>
+            )}
           </View>
         </Card>
       ) : null}
+
+      <RatingModal
+        visible={ratingOpen}
+        counterpartName={isTravellerLocal ? parcel.senderName : trip.travellerName}
+        onCancel={() => setRatingOpen(false)}
+        onSubmit={async (stars, comment) => {
+          await rateDelivery(delivery.id, stars, comment || undefined);
+          setRatingOpen(false);
+        }}
+      />
 
       {delivery.stage === "FAILED" ? (
         <Card>

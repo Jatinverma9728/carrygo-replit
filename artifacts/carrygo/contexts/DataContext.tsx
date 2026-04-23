@@ -166,7 +166,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   const refresh = useCallback(async () => {
     try {
       const [tripsRes, parcelsRes, requestsRes, deliveriesRes] = await Promise.all([
-        apiFetch<ApiTrip[]>("GET", "/api/trips"),
+        apiFetch<ApiTrip[]>("GET", "/api/trips").catch(() => [] as ApiTrip[]),
         user ? apiFetch<ApiParcel[]>("GET", "/api/parcels?mine=true").catch(() => [] as ApiParcel[]) : Promise.resolve([] as ApiParcel[]),
         user ? apiFetch<ApiRequest[]>("GET", "/api/requests").catch(() => [] as ApiRequest[]) : Promise.resolve([] as ApiRequest[]),
         user ? apiFetch<ApiDelivery[]>("GET", "/api/deliveries").catch(() => [] as ApiDelivery[]) : Promise.resolve([] as ApiDelivery[]),
@@ -194,7 +194,7 @@ export function DataProvider({ children }: { children: React.ReactNode }) {
   }, [user]);
 
   useEffect(() => {
-    refresh();
+    refresh().catch(() => {});
     if (!user) return;
     const interval = setInterval(() => {
       refresh().catch(() => {});

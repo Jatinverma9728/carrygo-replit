@@ -2,6 +2,7 @@ import { Feather } from "@expo/vector-icons";
 import { useLocalSearchParams, useRouter } from "expo-router";
 import React, { useEffect, useMemo, useState } from "react";
 import {
+  ActivityIndicator,
   FlatList,
   Platform,
   Pressable,
@@ -26,7 +27,7 @@ export default function ChatScreen() {
   const insets = useSafeAreaInsets();
   const { threadId } = useLocalSearchParams<{ threadId: string }>();
   const { user } = useAuth();
-  const { requests, parcels, trips, threadMessages, sendMessage, deliveries, loadThreadMessages, markThreadRead } = useData();
+  const { requests, parcels, trips, threadMessages, sendMessage, deliveries, loadThreadMessages, markThreadRead, hydrated } = useData();
   const [text, setText] = useState<string>("");
 
   useEffect(() => {
@@ -46,10 +47,22 @@ export default function ChatScreen() {
   const messages = useMemo(() => (threadId ? threadMessages(threadId) : []), [threadId, threadMessages]);
   const delivery = req ? deliveries.find((d) => d.requestId === req.id) : undefined;
 
-  if (!req || !user || !parcel) {
+  if (!user) {
     return (
       <View style={{ flex: 1, backgroundColor: c.background }}>
-        <EmptyState icon="message-circle" title="Conversation unavailable" />
+        <EmptyState icon="message-circle" title="Sign in to chat" />
+      </View>
+    );
+  }
+
+  if (!req || !parcel) {
+    return (
+      <View style={{ flex: 1, backgroundColor: c.background, alignItems: "center", justifyContent: "center" }}>
+        {hydrated ? (
+          <EmptyState icon="message-circle" title="Conversation unavailable" description="It may have been removed or is not yet shared with you." />
+        ) : (
+          <ActivityIndicator color={c.mutedForeground} />
+        )}
       </View>
     );
   }

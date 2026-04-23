@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from "react-native-safe-area-context";
 
 import { Button } from "@/components/Button";
 import { ChipPicker } from "@/components/ChipPicker";
+import { DateStepper } from "@/components/DateStepper";
 import { Input } from "@/components/Input";
 import { useAuth } from "@/contexts/AuthContext";
 import { useData } from "@/contexts/DataContext";
@@ -66,10 +67,6 @@ export default function CreateParcelScreen() {
     if (!result.canceled && result.assets[0]) {
       setImageUri(result.assets[0].uri);
     }
-  };
-
-  const shiftDate = (days: number) => {
-    setDate(new Date(date.getTime() + days * 24 * 60 * 60 * 1000));
   };
 
   const onSubmit = async () => {
@@ -141,22 +138,7 @@ export default function CreateParcelScreen() {
       />
 
       <Text style={[styles.section, { color: c.foreground }]}>Pickup date</Text>
-      <View style={[styles.dateBox, { borderColor: c.border, backgroundColor: c.card }]}>
-        <Pressable onPress={() => shiftDate(-1)} hitSlop={10} style={[styles.dateBtn, { backgroundColor: c.background, borderColor: c.border }]}>
-          <Feather name="chevron-left" size={18} color={c.foreground} />
-        </Pressable>
-        <View style={{ alignItems: "center", flex: 1 }}>
-          <Text style={[styles.dateLarge, { color: c.foreground }]}>
-            {date.toLocaleDateString(undefined, { weekday: "short", month: "short", day: "numeric" })}
-          </Text>
-          <Text style={[styles.dateSmall, { color: c.mutedForeground }]}>
-            {date.toLocaleDateString(undefined, { year: "numeric" })}
-          </Text>
-        </View>
-        <Pressable onPress={() => shiftDate(1)} hitSlop={10} style={[styles.dateBtn, { backgroundColor: c.background, borderColor: c.border }]}>
-          <Feather name="chevron-right" size={18} color={c.foreground} />
-        </Pressable>
-      </View>
+      <DateStepper value={date} onChange={setDate} minDate={new Date()} />
 
       <Text style={[styles.section, { color: c.foreground }]}>Category</Text>
       <ChipPicker value={category} options={CATEGORIES} onChange={setCategory} scrollable />
@@ -195,10 +177,6 @@ export default function CreateParcelScreen() {
 const styles = StyleSheet.create({
   container: { padding: 20, gap: 12 },
   section: { fontFamily: "Inter_700Bold", fontSize: 13, letterSpacing: 0.4, textTransform: "uppercase", marginTop: 12 },
-  dateBox: { flexDirection: "row", alignItems: "center", padding: 12, borderRadius: 14, borderWidth: 1 },
-  dateBtn: { width: 38, height: 38, borderRadius: 19, alignItems: "center", justifyContent: "center", borderWidth: 1 },
-  dateLarge: { fontFamily: "Inter_700Bold", fontSize: 18, letterSpacing: -0.2 },
-  dateSmall: { fontFamily: "Inter_500Medium", fontSize: 12, marginTop: 2 },
   suffix: { fontFamily: "Inter_600SemiBold", fontSize: 14, marginLeft: 8 },
   twoCol: { flexDirection: "row", gap: 12 },
   imageBox: { borderRadius: 14, borderWidth: 1, borderStyle: "dashed", height: 140, overflow: "hidden", alignItems: "center", justifyContent: "center" },
